@@ -39,7 +39,7 @@ get_distro() {
 if [ "$EUID" -ne 0 ] && [ "$1" != "--no-sudo" ]; then
     echo "Some installations require sudo permissions."
     echo "If you don't want to run with sudo, use './setup_env.sh --no-sudo' instead."
-    exec sudo "$0" "$@"
+    exit 1
 fi
 
 # Parse command line arguments
