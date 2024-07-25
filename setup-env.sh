@@ -134,7 +134,14 @@ rm -rf neovim-0.10.0 v0.10.0.tar.gz
 
 # Configure Neovim
 log_message "Configuring Neovim"
+if [ ! -d ~/.config ]; then
+    mkdir ~/.config
+fi
+
 git clone https://github.com/manitofigh/nvim.git ~/.config/nvim
 
+source ~/.zshrc
 log_message "Setup complete!"
+
 echo "Please log out and log back in for all changes to take effect."
+
