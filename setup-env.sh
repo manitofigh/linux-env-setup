@@ -69,15 +69,15 @@ distro=$(get_distro)
 case $distro in
     ubuntu)
         pkg_manager="apt-get"
-        packages="git tmux ltrace python3 python3-pip vim gcc g++ make gdb strace build-essential libncurses-dev bison flex libssl-dev libelf-dev fakeroot ccache libncurses-dev libncurses5-dev curl zsh gettext libtool libtool-bin autoconf automake cmake pkg-config unzip"
+        packages="git tmux ltrace python3 python3-pip vim ripgrep fzf gcc g++ make gdb strace build-essential libncurses-dev bison flex libssl-dev libelf-dev fakeroot ccache libncurses-dev libncurses5-dev curl zsh gettext libtool libtool-bin autoconf automake cmake pkg-config unzip"
         ;;
     fedora)
         pkg_manager="dnf"
-        packages="git tmux ltrace python3 python3-pip vim gcc gcc-c++ make gdb strace kernel-devel ncurses-devel bison flex openssl-devel elfutils-libelf-devel fakeroot ccache curl zsh gettext libtool autoconf automake cmake pkg-config unzip"
+        packages="git tmux ltrace python3 python3-pip vim ripgrep fzf gcc gcc-c++ make gdb strace kernel-devel ncurses-devel bison flex openssl-devel elfutils-libelf-devel fakeroot ccache curl zsh gettext libtool autoconf automake cmake pkg-config unzip"
         ;;
     arch)
         pkg_manager="pacman"
-        packages="git tmux ltrace python python-pip vim gcc make gdb strace base-devel ncurses bison flex openssl libelf fakeroot ccache curl zsh gettext libtool autoconf automake cmake pkg-config unzip"
+        packages="git tmux ltrace python python-pip vim ripgrep fzf gcc make gdb strace base-devel ncurses bison flex openssl libelf fakeroot ccache curl zsh gettext libtool autoconf automake cmake pkg-config unzip"
         ;;
 esac
 
