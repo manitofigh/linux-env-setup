@@ -1,53 +1,82 @@
 #!/bin/bash
 
-# Function to display usage
-show_usage() {
+# Setup script for configuring a Linux development environment
+# Supports Ubuntu, Fedora, and Arch Linux distributions
+# Allows running with or without sudo permissions
+# Interactively installs packages and tools for kernel development,
+# zsh, Oh My Zsh, and Neovim based on user preferences
+# Author: Mani Tofigh
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_msg() {
+    local msg="$1"
+    local len=$((${#msg} + 4))
+    local border=$(printf "%${len}s" | tr ' ' '-')
+    printf "\n+%s+\n|  %s  |\n+%s+\n" "${border}" "${msg}" "${border}"
+    sleep 2
+}
+
+setup_zsh() {
+    $sudo_cmd chsh -s "$(command -v zsh)" "$(whoami)"
+    ZSH="$HOME/.oh-my-zsh" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+    cat <<-'EOF' > "$HOME/.oh-my-zsh/themes/robbyrussell.zsh-theme"
+    PROMPT="%{$fg[green]%}%n%{$fg_bold[white]%}@%{$fg_bold[green]%}%m %(?:%{$fg_bold[green]%}%1{➜%} :%{$fg_bold[red]%}%1{💀%} ) %{$fg[cyan]%}%c%{$reset_color%}"
+    PROMPT+=' $(git_prompt_info)'
+
+    ZSH_THEME_GIT_PROMPT_PREFIX="%{$fg_bold[blue]%}git:(%{$fg[red]%}"
+    ZSH_THEME_GIT_PROMPT_SUFFIX="%{$reset_color%} "
+    ZSH_THEME_GIT_PROMPT_DIRTY="%{$fg[blue]%}) %{$fg[yellow]%}%1{✗%}"
+    ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg[blue]%})"
+    EOF
+}
+
+setup_scripts_dir() {
+    mkdir -p "$HOME/scripts"
+    echo 'export PATH="$HOME/scripts:$PATH"' >> ~/.zshrc
+}
+
+install_neovim() {
+    wget https://github.com/neovim/neovim/archive/refs/tags/v0.10.0.tar.gz
+    tar xzvf v0.10.0.tar.gz
+    cd neovim-0.10.0 || exit 1
+    make CMAKE_BUILD_TYPE=Release
+    $sudo_cmd make install
+    cd ..
+    rm -rf neovim-0.10.0 v0.10.0.tar.gz
+}
+
+setup_git() {
+    git config --global user.name "Mani Tofigh"
+    git config --global user.email "manitofigh@protonmail.com"
+}
+
+setup_nvim_config() {
+    if [[ ! -d ~/.config ]]; then
+        mkdir ~/.config
+    fi
+    git clone https://github.com/manitofigh/nvim.git ~/.config/nvim
+}
+
+usage() {
     echo "Usage: $0 [-h] [--no-sudo]"
-    echo "  -h         Show this help message"
-    echo "  --no-sudo  Run without sudo (some installations may fail)"
+    echo
+    echo "Setup script for configuring a Linux development environment"
+    echo
+    echo "Options:"
+    echo "  -h, --help    Display this help message and exit"
+    echo "  --no-sudo     Run the script without using sudo"
 }
 
-# Function to display log messages
-log_message() {
-    local message="$1"
-    local width=50
-    local padding=$(( (width - ${#message}) / 2 ))
-    printf "+%${width}s+\n" | tr ' ' '-'
-    printf "|%*s%s%*s|\n" $padding "" "$message" $padding
-    printf "+%${width}s+\n" | tr ' ' '-'
-}
-
-# Function to get user input for distro selection
-get_distro() {
-    while true; do
-        echo "Select your Linux distribution:"
-        echo "1. Ubuntu"
-        echo "2. Fedora"
-        echo "3. Arch Linux"
-        read -p "Enter the number (1-3): " distro_choice
-
-        case $distro_choice in
-            1) echo "ubuntu"; return ;;
-            2) echo "fedora"; return ;;
-            3) echo "arch"; return ;;
-            *) echo "Invalid choice. Please try again." ;;
-        esac
-    done
-}
-
-# Check if script is run with sudo
-if [ "$EUID" -ne 0 ] && [ "$1" != "--no-sudo" ]; then
-    echo "Some installations require sudo permissions."
-    echo "If you don't want to run with sudo, use './setup_env.sh --no-sudo' instead."
-    exit 1
-fi
-
-# Parse command line arguments
-no_sudo=false
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        -h)
-            show_usage
+    case "$1" in
+        -h|--help)
+            usage
             exit 0
             ;;
         --no-sudo)
@@ -55,86 +84,128 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo "Unknown option: $1"
-            show_usage
+            echo "Invalid argument: $1"
+            usage
             exit 1
             ;;
     esac
 done
 
-# Get the distro
-distro=$(get_distro)
+if [[ $EUID -eq 0 ]]; then
+    if [[ $no_sudo ]]; then
+        echo "Script is running with sudo, but --no-sudo was specified."
+        echo "Please run the script without sudo or remove the --no-sudo flag."
+        exit 1
+    fi
+    sudo_cmd=""
+else
+    if [[ $no_sudo ]]; then
+        sudo_cmd=""
+        echo -e "${YELLOW}Running script without sudo. Some features may not work.${NC}"
+    else
+        echo -e "${RED}Script must be run with sudo or with the --no-sudo flag.${NC}"
+        exit 1
+    fi
+fi
 
-# Set package manager and package list based on distro
-case $distro in
-    ubuntu)
-        pkg_manager="apt-get"
-        packages="git tmux ltrace python3 python3-pip vim ripgrep fzf gcc g++ make gdb strace build-essential libncurses-dev bison flex libssl-dev libelf-dev fakeroot ccache libncurses-dev libncurses5-dev curl zsh gettext libtool libtool-bin autoconf automake cmake pkg-config unzip"
+echo "Select your Linux distribution:"
+echo "1) Ubuntu"
+echo "2) Fedora"
+echo "3) Arch"
+read -r choice
+
+case $choice in
+    1)
+        distro="ubuntu"
+        pkg_manager="apt"
         ;;
-    fedora)
+    2)
+        distro="fedora"
         pkg_manager="dnf"
-        packages="git tmux ltrace python3 python3-pip vim ripgrep fzf gcc gcc-c++ make gdb strace kernel-devel ncurses-devel bison flex openssl-devel elfutils-libelf-devel fakeroot ccache curl zsh gettext libtool autoconf automake cmake pkg-config unzip"
         ;;
-    arch)
+    3)
+        distro="arch"
         pkg_manager="pacman"
-        packages="git tmux ltrace python python-pip vim ripgrep fzf gcc make gdb strace base-devel ncurses bison flex openssl libelf fakeroot ccache curl zsh gettext libtool autoconf automake cmake pkg-config unzip"
+        ;;
+    *)
+        echo "Invalid choice. Exiting."
+        exit 1
         ;;
 esac
 
-# Install packages
-log_message "Installing packages"
-if [ "$no_sudo" = true ]; then
-    $pkg_manager install -y $packages
-else
-    sudo $pkg_manager install -y $packages
+echo -e "${GREEN}Setting up development environment for $distro${NC}"
+
+read -p "Install curl and git? (y/n): " install_curl_git
+if [[ $install_curl_git =~ ^[Yy]$ ]]; then
+    log_msg "Installing curl and git"
+    case $pkg_manager in
+        "apt")
+            $sudo_cmd apt update
+            $sudo_cmd apt install -y curl git
+            ;;
+        "dnf")
+            $sudo_cmd dnf install -y curl git
+            ;;
+        "pacman")
+            $sudo_cmd pacman -Syu --noconfirm curl git
+            ;;
+    esac
 fi
 
-# Install Oh My Zsh
-log_message "Installing Oh My Zsh"
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+packages=(
+    tmux ltrace python3 python3-pip vim gcc g++ make gdb strace
+    build-essential libncurses-dev bison flex libssl-dev libelf-dev
+    fakeroot ccache libncurses-dev libncurses5-dev zsh gettext
+    libtool libtool-bin autoconf automake cmake pkg-config unzip
+)
 
-# Change default shell to zsh
-log_message "Changing default shell to zsh"
-if [ "$no_sudo" = true ]; then
-    chsh -s $(which zsh)
-else
-    sudo chsh -s $(which zsh) $USER
+read -p "Install development packages? (y/n): " install_packages
+if [[ $install_packages =~ ^[Yy]$ ]]; then
+    log_msg "Installing packages"
+    case $pkg_manager in
+        "apt")
+            $sudo_cmd apt install -y "${packages[@]}"
+            ;;
+        "dnf")
+            $sudo_cmd dnf install -y "${packages[@]}"
+            ;;
+        "pacman")
+            $sudo_cmd pacman -Syu --noconfirm "${packages[@]}"
+            ;;
+    esac
 fi
 
-# Configure Oh My Zsh theme
-log_message "Configuring Oh My Zsh theme"
-cat > ~/.oh-my-zsh/themes/robbyrussell.zsh-theme << EOL
-PROMPT="%{$fg[green]%}%n%{$fg_bold[white]%}@%{$fg_bold[green]%}%m %(?:%{$fg_bold[green]%}%1{➜%} :%{$fg_bold[red]%}%1{💀%} ) %{$fg[cyan]%}%c%{$reset_color%}"
-PROMPT+=' $(git_prompt_info)'
-
-ZSH_THEME_GIT_PROMPT_PREFIX="%{$fg_bold[blue]%}git:(%{$fg[red]%}"
-ZSH_THEME_GIT_PROMPT_SUFFIX="%{$reset_color%} "
-ZSH_THEME_GIT_PROMPT_DIRTY="%{$fg[blue]%}) %{$fg[yellow]%}%1{✗%}"
-ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg[blue]%})"
-EOL
-
-# Create scripts directory and add to PATH
-log_message "Creating scripts directory and adding to PATH"
-mkdir -p ~/scripts
-echo 'export PATH="$HOME/scripts:$PATH"' >> ~/.zshrc
-
-# Install Neovim
-log_message "Installing Neovim"
-wget https://github.com/neovim/neovim/archive/refs/tags/v0.10.0.tar.gz
-tar xzvf v0.10.0.tar.gz
-cd neovim-0.10.0
-make CMAKE_BUILD_TYPE=Release
-if [ "$no_sudo" = true ]; then
-    make install
-else
-    sudo make install
+read -p "Set up zsh and Oh My Zsh? (y/n): " setup_zsh_choice
+if [[ $setup_zsh_choice =~ ^[Yy]$ ]]; then
+    log_msg "Setting up zsh and Oh My Zsh"
+    setup_zsh
 fi
-cd ..
-rm -rf neovim-0.10.0 v0.10.0.tar.gz
 
-# Configure Neovim
-log_message "Configuring Neovim"
-git clone https://github.com/manitofigh/nvim.git ~/.config/nvim
+read -p "Set up scripts directory? (y/n): " setup_scripts_choice
+if [[ $setup_scripts_choice =~ ^[Yy]$ ]]; then
+    log_msg "Setting up scripts directory"
+    setup_scripts_dir
+fi
 
-log_message "Setup complete!"
-echo "Please log out and log back in for all changes to take effect."
+read -p "Install Neovim from source? (y/n): " install_neovim_choice
+if [[ $install_neovim_choice =~ ^[Yy]$ ]]; then
+    log_msg "Installing Neovim"
+    install_neovim
+
+    read -p "Set up Neovim based on Mani Tofigh's configuration? (y/n): " setup_nvim_config_choice
+    if [[ $setup_nvim_config_choice =~ ^[Yy]$ ]]; then
+        log_msg "Setting up Neovim configuration"
+        setup_nvim_config
+    fi
+fi
+
+read -p "Set up git configuration? (y/n): " setup_git_choice
+if [[ $setup_git_choice =~ ^[Yy]$ ]]; then
+    log_msg "Setting up git configuration"
+    setup_git
+fi
+
+source ~/.zshrc
+
+log_msg "Setup complete!"
+echo "Please restart your terminal or run 'source ~/.zshrc' to apply the changes."
