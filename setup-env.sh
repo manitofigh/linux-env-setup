@@ -7,6 +7,8 @@
 # zsh, Oh My Zsh, and Neovim based on user preferences
 # Author: Mani Tofigh
 
+set -e
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -18,22 +20,20 @@ log_msg() {
     local len=$((${#msg} + 4))
     local border=$(printf "%${len}s" | tr ' ' '-')
     printf "\n+%s+\n|  %s  |\n+%s+\n" "${border}" "${msg}" "${border}"
-    sleep 2
+    sleep 1
+}
+
+confirm() {
+    read -p "$1 (y/n): " choice
+    case "$choice" in
+        y|Y ) return 0 ;;
+        n|N ) return 1 ;;
+        * ) echo "Invalid input. Please enter 'y' or 'n'."; confirm "$1" ;;
+    esac
 }
 
 setup_zsh() {
     $sudo_cmd chsh -s "$(command -v zsh)" "$(whoami)"
-    ZSH="$HOME/.oh-my-zsh" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-
-    cat <<-'EOF' > "$HOME/.oh-my-zsh/themes/robbyrussell.zsh-theme"
-    PROMPT="%{$fg[green]%}%n%{$fg_bold[white]%}@%{$fg_bold[green]%}%m %(?:%{$fg_bold[green]%}%1{➜%} :%{$fg_bold[red]%}%1{💀%} ) %{$fg[cyan]%}%c%{$reset_color%}"
-    PROMPT+=' $(git_prompt_info)'
-
-    ZSH_THEME_GIT_PROMPT_PREFIX="%{$fg_bold[blue]%}git:(%{$fg[red]%}"
-    ZSH_THEME_GIT_PROMPT_SUFFIX="%{$reset_color%} "
-    ZSH_THEME_GIT_PROMPT_DIRTY="%{$fg[blue]%}) %{$fg[yellow]%}%1{✗%}"
-    ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg[blue]%})"
-    EOF
 }
 
 setup_scripts_dir() {
@@ -61,6 +61,20 @@ setup_nvim_config() {
         mkdir ~/.config
     fi
     git clone https://github.com/manitofigh/nvim.git ~/.config/nvim
+}
+
+setup_oh_my_zsh() {
+    ZSH="$HOME/.oh-my-zsh" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+    cat <<'EOF' > "$HOME/.oh-my-zsh/themes/robbyrussell.zsh-theme"
+PROMPT="%{$fg[green]%}%n%{$fg_bold[white]%}@%{$fg_bold[green]%}%m %(?:%{$fg_bold[green]%}%1{➜%} :%{$fg_bold[red]%}%1{💀%} ) %{$fg[cyan]%}%c%{$reset_color%}"
+PROMPT+=' $(git_prompt_info)'
+
+ZSH_THEME_GIT_PROMPT_PREFIX="%{$fg_bold[blue]%}git:(%{$fg[red]%}"
+ZSH_THEME_GIT_PROMPT_SUFFIX="%{$reset_color%} "
+ZSH_THEME_GIT_PROMPT_DIRTY="%{$fg[blue]%}) %{$fg[yellow]%}%1{✗%}"
+ZSH_THEME_GIT_PROMPT_CLEAN="%{$fg[blue]%})"
+EOF
 }
 
 usage() {
@@ -103,8 +117,7 @@ else
         sudo_cmd=""
         echo -e "${YELLOW}Running script without sudo. Some features may not work.${NC}"
     else
-        echo -e "${RED}Script must be run with sudo or with the --no-sudo flag.${NC}"
-        exit 1
+        sudo_cmd="sudo"
     fi
 fi
 
@@ -135,8 +148,7 @@ esac
 
 echo -e "${GREEN}Setting up development environment for $distro${NC}"
 
-read -p "Install curl and git? (y/n): " install_curl_git
-if [[ $install_curl_git =~ ^[Yy]$ ]]; then
+if confirm "Install curl and git?"; then
     log_msg "Installing curl and git"
     case $pkg_manager in
         "apt")
@@ -159,8 +171,7 @@ packages=(
     libtool libtool-bin autoconf automake cmake pkg-config unzip
 )
 
-read -p "Install development packages? (y/n): " install_packages
-if [[ $install_packages =~ ^[Yy]$ ]]; then
+if confirm "Install development packages?"; then
     log_msg "Installing packages"
     case $pkg_manager in
         "apt")
@@ -175,37 +186,35 @@ if [[ $install_packages =~ ^[Yy]$ ]]; then
     esac
 fi
 
-read -p "Set up zsh and Oh My Zsh? (y/n): " setup_zsh_choice
-if [[ $setup_zsh_choice =~ ^[Yy]$ ]]; then
-    log_msg "Setting up zsh and Oh My Zsh"
+if confirm "Set up zsh?"; then
+    log_msg "Setting up zsh"
     setup_zsh
 fi
 
-read -p "Set up scripts directory? (y/n): " setup_scripts_choice
-if [[ $setup_scripts_choice =~ ^[Yy]$ ]]; then
+if confirm "Set up scripts directory?"; then
     log_msg "Setting up scripts directory"
     setup_scripts_dir
 fi
 
-read -p "Install Neovim from source? (y/n): " install_neovim_choice
-if [[ $install_neovim_choice =~ ^[Yy]$ ]]; then
+if confirm "Install Neovim from source?"; then
     log_msg "Installing Neovim"
     install_neovim
 
-    read -p "Set up Neovim based on Mani Tofigh's configuration? (y/n): " setup_nvim_config_choice
-    if [[ $setup_nvim_config_choice =~ ^[Yy]$ ]]; then
+    if confirm "Set up Neovim based on Mani Tofigh's configuration?"; then
         log_msg "Setting up Neovim configuration"
         setup_nvim_config
     fi
 fi
 
-read -p "Set up git configuration? (y/n): " setup_git_choice
-if [[ $setup_git_choice =~ ^[Yy]$ ]]; then
+if confirm "Set up git configuration?"; then
     log_msg "Setting up git configuration"
     setup_git
 fi
 
-source ~/.zshrc
+if confirm "Install Oh My Zsh?"; then
+    log_msg "Installing Oh My Zsh"
+    setup_oh_my_zsh
+fi
 
 log_msg "Setup complete!"
 echo "Please restart your terminal or run 'source ~/.zshrc' to apply the changes."
