@@ -168,7 +168,7 @@ packages=(
     tmux ltrace python3 python3-pip vim gcc g++ make gdb strace
     build-essential libncurses-dev bison flex libssl-dev libelf-dev
     fakeroot ccache libncurses-dev libncurses5-dev zsh gettext
-    libtool libtool-bin autoconf automake cmake pkg-config unzip
+    libtool libtool-bin autoconf automake cmake pkg-config unzip ripgrep
 )
 
 if confirm "Install development packages?"; then
