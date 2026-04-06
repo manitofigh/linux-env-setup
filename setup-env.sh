@@ -42,13 +42,12 @@ setup_scripts_dir() {
 }
 
 install_neovim() {
-    wget https://github.com/neovim/neovim/archive/refs/tags/v0.10.0.tar.gz
-    tar xzvf v0.10.0.tar.gz
-    cd neovim-0.10.0 || exit 1
-    make CMAKE_BUILD_TYPE=Release
-    $sudo_cmd make install
-    cd ..
-    rm -rf neovim-0.10.0 v0.10.0.tar.gz
+    curl -LO https://github.com/neovim/neovim/releases/download/v0.12.1/nvim-linux-x86_64.tar.gz
+    tar xzf nvim-linux-x86_64.tar.gz
+    $sudo_cmd rm -rf /opt/nvim
+    $sudo_cmd mv nvim-linux-x86_64 /opt/nvim
+    $sudo_cmd ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
+    rm -f nvim-linux-x86_64.tar.gz
 }
 
 setup_git() {
@@ -196,7 +195,7 @@ if confirm "Set up scripts directory?"; then
     setup_scripts_dir
 fi
 
-if confirm "Install Neovim from source?"; then
+if confirm "Install Neovim (v0.12.1)?"; then
     log_msg "Installing Neovim"
     install_neovim
 
